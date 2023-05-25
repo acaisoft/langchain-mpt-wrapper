@@ -1,0 +1,8 @@
+
+*.txt
+.idea
+.idea/
+
+
+# mac files
+.DS_store
