@@ -4,13 +4,23 @@ from langchain.llms import HuggingFacePipeline
 
 
 class LangchainMPTWrapper(HuggingFacePipeline):
-    def __init__(self, model_path, max_seq_len, max_new_tokens, temperature, top_p, top_k, repetition_penalty, device, torch_dtype, attn_impl='triton'):
+    def __init__(
+            self,
+            model_path,
+            max_seq_len=1024,
+            max_new_tokens=126,
+            temperature=0.1,
+            top_p=0.15,
+            top_k=0,
+            repetition_penalty=1.1,
+            device="cpu",
+            torch_dtype=torch.bfloat16,
+            attn_impl='triton'
+    ):
         tokenizer = transformers.AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
 
-        # mtp-7b is trained to add "<|endoftext|>" at the end of generations
         stop_token_ids = tokenizer.convert_tokens_to_ids(["<|endoftext|>"])
 
-        # define custom stopping criteria object
         class StopOnTokens(transformers.StoppingCriteria):
             def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
                 for stop_id in stop_token_ids:
@@ -30,23 +40,19 @@ class LangchainMPTWrapper(HuggingFacePipeline):
             trust_remote_code=True,
             torch_dtype=torch_dtype,
         )
-        # model.eval()
         model.to(device)
         print(f"Model loaded on {device}")
-
         stopping_criteria = transformers.StoppingCriteriaList([StopOnTokens()])
         generate_text = transformers.pipeline(
             model=model, tokenizer=tokenizer,
-            return_full_text=True,  # langchain expects the full text
+            return_full_text=True,
             task='text-generation',
             device=device,
-            # we pass model parameters here too
-            stopping_criteria=stopping_criteria,  # without this model will ramble
-            temperature=float(temperature),  # 'randomness' of outputs, 0.0 is the min and 1.0 the max
-            top_p=float(top_p),  # select from top tokens whose probability add up to 15%
-            top_k=float(top_k),  # select from top 0 tokens (because zero, relies on top_p)
-            max_new_tokens=int(max_new_tokens),  # mex number of tokens to generate in the output
-            repetition_penalty=float(repetition_penalty)  # without this output begins repeating
+            stopping_criteria=stopping_criteria,
+            temperature=float(temperature),
+            top_p=float(top_p),
+            top_k=float(top_k),
+            max_new_tokens=int(max_new_tokens),
+            repetition_penalty=float(repetition_penalty)
         )
-        self.pipeline = generate_text
-
+        super().__init__(pipeline=generate_text)
