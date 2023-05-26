@@ -3,6 +3,6 @@
 .idea
 .idea/
 
-
+!LICENSE.txt
 # mac files
 .DS_store
